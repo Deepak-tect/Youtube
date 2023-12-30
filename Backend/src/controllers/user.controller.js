@@ -3,6 +3,7 @@ import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { uploadOnCloudinary } from "../utils/cloudinary.js";
+import jwt from "jsonwebtoken";
 // data rec
     // data field vaildation
     // check user is already present
@@ -213,5 +214,129 @@ const userLoggedOut = asyncHandler(async(req,res)=>{
     .json(new ApiResponse(200, {}, "User logged Out"))
 
 })
+const refrehAccessToken = asyncHandler(async(req,res)=>{
+    const incomingRefreshToken = req.cookies.refreshToken;
+    if(!incomingRefreshToken){
+        throw new ApiError('401',"unauthorised member")
+    } 
+    const userId = jwt.verify(incomingRefreshToken ,process.env.REFRESH_TOKEN_SECRET)._id;
+    const user = await User.findById(userId);
+    if(!user){
+        throw new ApiError('404',"invalid token")
+    }
+    if(user.refreshToken !== incomingRefreshToken){
+        throw new ApiError(401,"invalid token")
+    }
+    const {accessToken , refreshToken} = await generateAccessTokenandRefreshToken(user);
+    const options = {
+        httpOnly:true,
+        secure:true
+    }
+    res.status(200).cookie("accessToken" , accessToken , options).cookie("refreshToken" , refreshToken , options).json(
+        new ApiResponse(200 , {accessToken , refreshToken}, "token refresh successfully")
+    )
 
-export {userRegister, userLogin,userLoggedOut}
+})
+
+const changeCurrentPassword = asyncHandler(async(req,res)=>{
+    const {oldpassword , newpassword} = req.body;
+    // console.log(req.user);
+    const user = await User.findById(req.user._id);
+    const checkUser = await user.isPasswordCorrect(oldpassword);
+    if(!checkUser){
+        throw new ApiError(401,"invalid oldpassword");
+    }
+    user.password = newpassword;
+    await user.save({validateBeforeSave: false})
+    return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password changed successfully"))
+
+})
+
+const updateAvatar = asyncHandler(async(req,res)=>{
+    const avatarPath = req.file.path;
+    
+    const avatarUrl = await uploadOnCloudinary(avatarPath);
+    if(!avatarUrl.url){
+        throw new ApiError(500 , "failed to upload on cloudinary");
+    }
+    const userId = req.user._id;
+    const user = await User.findById(userId);
+    await User.updateOne({_id: userId}, {$set:{avatar:avatarUrl.url}})
+    res.status(200).json(new ApiResponse(201 , {}, "successfully updated avatar"))
+    
+
+})
+
+const updateUserCoverImage = asyncHandler(async(req, res) => {
+    const coverImageLocalPath = req.file?.path
+
+    if (!coverImageLocalPath) {
+        throw new ApiError(400, "Cover image file is missing")
+    }
+
+    //TODO: delete old image - assignment
+
+
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath)
+
+    if (!coverImage.url) {
+        throw new ApiError(400, "Error while uploading on avatar")
+        
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set:{
+                coverImage: coverImage.url
+            }
+        },
+        {new: true}
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, user, "Cover image updated successfully")
+    )
+})
+
+const getCurrentUser = asyncHandler(async(req, res) => {
+    return res
+    .status(200)
+    .json(new ApiResponse(
+        200,
+        req.user,
+        "User fetched successfully"
+    ))
+})
+
+const updateAccountDetails = asyncHandler(async(req, res) => {
+    const {fullName, email} = req.body
+    console.table([fullName,email])
+    if (!fullName && !email) {
+        throw new ApiError(400, "All fields are required")
+    }
+
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set: {
+                fullName,
+                email: email
+            }
+        },
+        {new: true}
+        
+    ).select("-password")
+
+    return res
+    .status(200)
+    .json(new ApiResponse(200, user, "Account details updated successfully"))
+});
+
+//eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NThkMmVlZTE0NWMwZDEzNTliMzVmODYiLCJpYXQiOjE3MDM4MzU1MDMsImV4cCI6MTcwNDY5OTUwM30.4GBzk9cZmvRcvfmTRvzkCG00sALY9pu5JyCNN6dmQuw
+
+export {userRegister, userLogin,userLoggedOut,refrehAccessToken,changeCurrentPassword,updateAvatar,updateUserCoverImage,getCurrentUser,updateAccountDetails}
