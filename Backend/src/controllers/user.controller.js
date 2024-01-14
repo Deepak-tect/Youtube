@@ -1,4 +1,7 @@
+import mongoose from "mongoose";
+import { Subsciption } from "../models/subscription.model.js";
 import { User } from "../models/user.model.js";
+import { Video } from "../models/video.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { ApiResponse } from "../utils/ApiResponse.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -98,49 +101,7 @@ const userRegister = asyncHandler(async (req,res)=>{
         new ApiResponse(200, createdUser, "User registered Successfully")
     )
 
-    // const {username , email , fullName, password} = req.body
-    // const user = req.body;
     
-    // if(user.email === '' || user.username === '' || user.fullname) throw new ApiError(400, "please send all the information")
-    
-    // const existedUser = await User.findOne({
-    //     $or: [{ username }, { email }]
-    // })
-
-    // if (existedUser) {
-    //     throw new ApiError(409, "User with email or username already exists")
-    // }
-    // // console.log(req.files)
-    // const avatarLocalPath = (req.files && req.files.avatar && req.files.avatar[0] && req.files.avatar[0].path) || undefined;;
-    
-    // if (!avatarLocalPath) {
-    //     return res.status(400).json(new ApiError(401))
-    // }
-    // const coverImageLocalPath = (req.files && req.files.coverImage && req.files.coverImage[0] && req.files.coverImage[0].path) || undefined;;
-    
-    // console.log(avatarLocalPath);
-    // console.log(coverImageLocalPath);
-    // const avatarUrl = await uploadOnCloudinary(avatarLocalPath);
-    // const coverImageUrl = await uploadOnCloudinary(coverImageLocalPath);
-    
-    // const presentUser = await User.create({
-    //     username,
-    //     email,
-    //     fullName,
-    //     avatar: avatarUrl.url,
-    //     coverImage: coverImageUrl.url,
-    //     password
-    // })
-    // const createdUser = await User.findById(presentUser._id).select(
-    //     "-password -refreshToken"
-    // )
-    // if (!createdUser) {
-    //     throw new ApiError(500, "Something went wrong while registering the user")
-    // }
-
-    // return res.status(201).json(
-    //     new ApiResponse(200, createdUser, "User registered Successfully")
-    // )
     
 
 })
@@ -191,7 +152,7 @@ const userLoggedOut = asyncHandler(async(req,res)=>{
         req.user._id,
         {
             $set: {
-                refreshToken: ""
+                refreshToken: ""    // can be use 1 to unset 
             }
         },
         {
@@ -315,7 +276,7 @@ const getCurrentUser = asyncHandler(async(req, res) => {
 
 const updateAccountDetails = asyncHandler(async(req, res) => {
     const {fullName, email} = req.body
-    console.table([fullName,email])
+    // console.table([fullName,email])
     if (!fullName && !email) {
         throw new ApiError(400, "All fields are required")
     }
@@ -337,6 +298,178 @@ const updateAccountDetails = asyncHandler(async(req, res) => {
     .json(new ApiResponse(200, user, "Account details updated successfully"))
 });
 
-//eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NThkMmVlZTE0NWMwZDEzNTliMzVmODYiLCJpYXQiOjE3MDM4MzU1MDMsImV4cCI6MTcwNDY5OTUwM30.4GBzk9cZmvRcvfmTRvzkCG00sALY9pu5JyCNN6dmQuw
 
-export {userRegister, userLogin,userLoggedOut,refrehAccessToken,changeCurrentPassword,updateAvatar,updateUserCoverImage,getCurrentUser,updateAccountDetails}
+const addToSubsciption = asyncHandler(async(req,res)=>{
+    
+    const channelName = req.query.username;
+    const user = req.user;
+    if(!channelName){
+        throw new ApiError(400 , "url channel name not present");
+    }
+    const channel = await User.findOne({username : channelName});
+    
+    if(!channel){
+        throw new ApiError(400, "channel does not exist");
+    }
+    await Subsciption.create({
+        subscriber:user,
+        channel:channel
+    })
+    res.status(200).json(new ApiResponse(201, {},"subscibe successfully"));
+
+})
+
+const getUserChannelProfile = asyncHandler(async(req,res)=>{
+    const channelName = req.query.username;
+    if(!channelName){
+        throw new ApiError(400 , "url channel name not present");
+    }
+    // console.log(req.user);
+    
+    const channel = await User.aggregate([
+        {
+            $match: {
+                username: channelName?.toLowerCase()
+            }
+        },
+        {
+            $lookup: {
+                from: "subsciptions",
+                localField: "_id",
+                foreignField: "channel",
+                as: "subscribers"
+            }
+        },
+        {
+            $lookup: {
+                from: "subsciptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo"
+            }
+        },
+        {
+            $addFields: {
+                subscribersCount: {
+                    $size: "$subscribers"
+                },
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo"
+                },
+                isSubscribed: {
+                    $cond: {
+                        if: {
+                            $in: [
+                                req.user?._id,
+                                "$subscribers.subscriber" // Assuming this points directly to an array of subscriber IDs
+                            ]
+                        },
+                        then: true,
+                        else: false
+                    }
+                }
+                
+                
+            }
+        },
+        {
+            $project: {
+                fullName: 1,
+                username: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+                avatar: 1,
+                coverImage: 1,
+                email: 1
+            }
+        }
+    ])
+    if (!channel?.length) {
+        throw new ApiError(404, "channel does not exists")
+    }
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(200, channel[0], "User channel fetched successfully")
+    )
+
+})
+
+
+const uploadVideo = asyncHandler(async(req,res)=>{
+    const user = req.user;
+    const {title , description, duration} = req.body;
+    const videoPath = req.files.video[0].path;
+    const thumbnailPath = req.files.thumbnail[0].path;
+    const videoUploadOnCloudinary = await uploadOnCloudinary(videoPath);
+    if(!videoUploadOnCloudinary) throw new ApiError(500,"video fail to upload on cloudinary")
+    const thumbnailUploadOnCloudinary = await uploadOnCloudinary(thumbnailPath);
+    if(!thumbnailUploadOnCloudinary) throw new ApiError(500,"thumbnail fail to upload on cloudinary")
+    
+    await Video.create({
+        videoFile:videoUploadOnCloudinary.url,
+        thumbnail:thumbnailUploadOnCloudinary.url,
+        title,
+        description,
+        duration,
+        owner:user
+    })
+    
+    
+    res.status(200).json(new ApiResponse(200 , {}, "video uploaded successfully"));
+
+})
+
+const watchVideo = asyncHandler(async(req,res)=>{
+    const user = req.user;
+    const {_id} = req.body;
+    // console.log(_id);
+
+
+    const video = await Video.findById(_id);
+    // console.log(video);
+    if(!video){
+        throw new ApiError(500 , "failded to find video , send correct id");
+    }
+    user.watchHistory.push(video);
+    await user.save()
+    res.status(200).json(new ApiResponse(200 , {} , "video added in history"));
+    
+
+})
+
+
+const getWatchHistory = asyncHandler(async(req,res)=>{
+    const user = await User.aggregate([
+        {
+            $match:{
+                _id: new mongoose.Types.ObjectId(req.user._id) 
+            }
+        },
+        {
+            $lookup:{
+                from:"videos",
+                localField:"watchHistory",
+                foreignField:"_id",
+                as:"watchHistory",
+                pipeline:[
+                    {
+                        $lookup:{
+                            from:"users",
+                            localField:"_id",
+                            foreignField:"_id",
+                            as :"owner"
+                        },
+                        
+                    }
+                ]
+            }
+        }
+    ])
+    console.log(user);
+    res.send("ok");
+})
+
+export {userRegister, userLogin,userLoggedOut,refrehAccessToken,changeCurrentPassword,updateAvatar,updateUserCoverImage,getCurrentUser,updateAccountDetails,addToSubsciption,getUserChannelProfile,uploadVideo,watchVideo,getWatchHistory}
