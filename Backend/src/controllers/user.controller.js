@@ -430,9 +430,11 @@ const watchVideo = asyncHandler(async(req,res)=>{
 
     const video = await Video.findById(_id);
     // console.log(video);
+    video.views = video.views+1;
     if(!video){
         throw new ApiError(500 , "failded to find video , send correct id");
     }
+    await video.save();
     user.watchHistory.push(video);
     await user.save()
     res.status(200).json(new ApiResponse(200 , {} , "video added in history"));
