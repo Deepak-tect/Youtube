@@ -16,8 +16,10 @@ app.use(cookieParser()); // perform CRUD operation in cookie
 
 import userRouter from "./routes/user.routes.js";
 import videoRouter from "./routes/video.routes.js"
+import subscriptionRouter from "./routes/subscription.routes.js" 
 
 app.use('/api/v1/users', userRouter)
 app.use('/api/v1/videos',videoRouter)
+app.use('/app/v1/subscriptions',subscriptionRouter);
 
 export {app}

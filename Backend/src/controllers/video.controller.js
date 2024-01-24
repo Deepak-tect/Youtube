@@ -106,5 +106,19 @@ const getAllVideos = asyncHandler(async (req, res) => {
     
 })
 
+const togglePublishStatus = asyncHandler(async (req, res) => {
+    const { videoId } = req.query
+    const user = req.user;
+    const video = await Video.findById(videoId);
+    const userId = user._id
+    const ownerId = video.owner;
+    if(userId.toString() !== ownerId.toString()){
+        throw new ApiError(200 ,"unauthorized person tring to update the video")
+    }
+    video.isPublished = !video.isPublished;
+    video.save();
+    res.status(200).json(new ApiResponse(200 , {} , "ispublish is toggled"));
+})
 
-export {publishVideo, getVideoById,updateVideo,deleteVideo, getAllVideos}
+
+export {publishVideo, getVideoById,updateVideo,deleteVideo, getAllVideos,togglePublishStatus}
