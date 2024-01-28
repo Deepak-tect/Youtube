@@ -19,10 +19,11 @@ import videoRouter from "./routes/video.routes.js"
 import subscriptionRouter from "./routes/subscription.routes.js" 
 import commentRouter from "./routes/comment.route.js" 
 import playlistRouter from "./routes/playlist.route.js"
-
+import tweetRouter from "./routes/tweet.route.js"
 app.use('/api/v1/users', userRouter)
 app.use('/api/v1/videos',videoRouter)
 app.use('/app/v1/subscriptions',subscriptionRouter);
 app.use('/app/v1/comments', commentRouter);
 app.use('/app/v1/playlists', playlistRouter);
+app.use('/app/v1/tweets', tweetRouter);
 export {app}

@@ -24,19 +24,6 @@ const verifyJWT = async(req,res,next)=>{
         throw new ApiError(401, error?.message || "Invalid access token")
     }
     
-    // try {
-    //     const refreshToken = req.cookies?.refreshToken || req.header("Authorization")?.replace("Bearer ", "")
-    //     if (!refreshToken) {
-    //         throw new ApiError(401, "Unauthorized request")
-    //     }
-    //     const userId = jwt.verify(refreshToken,process.env.REFRESH_TOKEN_SECRET)._id;
-    //     const user = await User.findById(userId);
-    //     if(!user) throw new ApiError(404,"user cookie invalid")
-    //     req.user = user;
-    //     next()
-    // } catch (error) {
-    //     throw new ApiError(401, error?.message || "Invalid access token")
-    // }
 }
 
 export {verifyJWT}
