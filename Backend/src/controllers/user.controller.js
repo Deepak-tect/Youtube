@@ -446,32 +446,83 @@ const watchVideo = asyncHandler(async(req,res)=>{
 const getWatchHistory = asyncHandler(async(req,res)=>{
     const user = await User.aggregate([
         {
-            $match:{
-                _id: new mongoose.Types.ObjectId(req.user._id) 
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id)
             }
         },
         {
-            $lookup:{
-                from:"videos",
-                localField:"watchHistory",
-                foreignField:"_id",
-                as:"watchHistory",
-                pipeline:[
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
                     {
-                        $lookup:{
-                            from:"users",
-                            localField:"_id",
-                            foreignField:"_id",
-                            as :"owner"
-                        },
-                        
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    {
+                        $addFields:{
+                            owner:{
+                                $first: "$owner"
+                            }
+                        }
                     }
                 ]
             }
         }
     ])
-    console.log(user);
-    res.send("ok");
+
+    return res
+    .status(200)
+    .json(
+        new ApiResponse(
+            200,
+            user[0].watchHistory,
+            "Watch history fetched successfully"
+        )
+    )
+    // const user = await User.aggregate([
+    //     {
+    //         $match:{
+    //             _id: new mongoose.Types.ObjectId(req.user._id) 
+    //         }
+    //     },
+    //     {
+    //         $lookup:{
+    //             from:"videos",
+    //             localField:"watchHistory",
+    //             foreignField:"_id",
+    //             as:"watchHistory",
+    //             pipeline:[
+    //                 {
+    //                     $lookup:{
+    //                         from:"users",
+    //                         localField:"_id",
+    //                         foreignField:"_id",
+    //                         as :"owner"
+    //                     },
+                        
+    //                 }
+    //             ]
+    //         }
+    //     }
+    // ])
+    
+    // res.status(200).json(new ApiResponse(200 , user , "successfully fetched watch history"));
 })
 
 export {userRegister, userLogin,userLoggedOut,refrehAccessToken,changeCurrentPassword,updateAvatar,updateUserCoverImage,getCurrentUser,updateAccountDetails,addToSubsciption,getUserChannelProfile,uploadVideo,watchVideo,getWatchHistory}
