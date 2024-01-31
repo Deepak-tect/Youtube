@@ -26,7 +26,7 @@ Welcome to our video hosting website backend project! This project is a comprehe
 
 To get started with the project, follow these steps:
 
-1. Clone the repository: `git clone https://github.com/your_username/your_repository.git`
+1. Clone the repository: `git clone https://github.com/Deepak-tect/Youtube.git`
 2. Install dependencies: `npm install`
 3. Set up environment variables:
    - Create a `.env` file .
