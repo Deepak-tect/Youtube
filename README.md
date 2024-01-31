@@ -31,4 +31,4 @@ To get started with the project, follow these steps:
 3. Set up environment variables:
    - Create a `.env` file .
    - Populate the necessary environment variables, such as database connection URI, JWT secret, etc.
-4. Start the server: `npm run dev`
+4. Start the server: `npm run dev`.
